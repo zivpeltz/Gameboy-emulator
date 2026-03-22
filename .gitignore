@@ -1,0 +1,43 @@
+# Compiled Object Files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Compiled Dynamic & Static Libraries
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# Compiled Executables
+*.exe
+*.out
+*.app
+gameboy_emulator
+
+# Build Folders
+build/
+bin/
+obj/
+out/
+
+# Debugging & Crash Logs
+*.dSYM/
+*.su
+*.idb
+*.pdb
+core
+vgcore.*
+
+# OS & Editor Generated Trash
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# else
+*.pdf
