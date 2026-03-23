@@ -22,6 +22,7 @@ uint16_t get16(RegisterIndex reg);
 void set16(RegisterIndex reg, uint16_t val);
 
 /* flag operations */
-int get_flag(void); 
+int get_flag(char F);
+int set_flag(char F, int val);
 
 #endif // REGISTERS_H
