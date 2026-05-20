@@ -524,58 +524,288 @@ int POP(RegisterIndex dst){
 /*================== ROTATES\SHIFTS OPERATIONS =======================*/
 
 /* 
-note: here on the rotates i set the Z flag to zero unconditonally, this does not match the 
+note: here on the rotates i set the some of the Z flags to zero unconditonally, this does not match the 
 documant im working with but sources online claim that in actual gameboy systems this is the case
 */
-
-/* rotates A left */
-int RCLA() {
+/* rotates A left circularly  */
+int RLCA() {
     uint8_t value = get8(REG_AF, 1);
+    int carry = (value >> 7) & 1;
+
+    value = (value << 1) | carry;
+
+    set8(REG_AF, 1, value);
+
+    set_flag(FLAG_Z, 0); /* Unconditionally reset on real hardware */
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 4;
+}
+
+/* rotates A left through carry*/
+int RLA() {
+    uint8_t value = get8(REG_AF, 1);
+    int carry = (value >> 7) & 1;
+    int curr_carry = get_flag(FLAG_C);
+
+    value = ((value << 1) & (~1)) | curr_carry;
+
+    set8(REG_AF, 1, value);
+
+    set_flag(FLAG_Z, 0); /* Unconditionally reset on real hardware */
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 4;
+}
+
+/* rotates A right circularly  */
+int RRCA() {
+    uint8_t value = get8(REG_AF, 1);
+    int carry = value & 1;
+
+    value = ((value >> 1) & 0x7F) | (carry << 7);
+
+    set8(REG_AF, 1, value);
+
+    set_flag(FLAG_Z, 0); /* Unconditionally reset on real hardware */
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 4;
+}
+
+/* rotates A right through carry  */
+int RRA() {
+    uint8_t value = get8(REG_AF, 1);
+    int carry = value & 1;
+    int curr_carry = get_flag(FLAG_C);
+
+    value = ((value >> 1) & 0x7F) | (curr_carry << 7);
+
+    set8(REG_AF, 1, value);
+
+    set_flag(FLAG_Z, 0); /* Unconditionally reset on real hardware */
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 4;
+}
+
+/* rotates 8-bit register left */
+int rotate_left_r(RegisterIndex src , int high) {
+    uint8_t value = get8(src, high);
     /* get old bit 7 for carry*/
     int carry = ((value >> 7) & 1);
 
     value = (value << 1 | carry);
 
-    set8(REG_AF, 1, value);
+    set8(src, high, value);
     
-    set_flag(FLAG_Z, 0); 
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 4;
+    return 8;
 }
 
-/* rotates A left and sets old carry as bit 0*/
-int RLA() {
-    uint8_t value = get8(REG_AF, 1);
+/* rotates 8-bit register left through carry*/
+int rotate_left_carry_r(RegisterIndex src , int high) {
+    uint8_t value = get8(src, high);
     /* get old bit 7 for carry*/
     int carry = ((value >> 7) & 1);
     int curr_carry = get_flag(FLAG_C);
     value = ((value << 1) & (~1)) | curr_carry;
-    set8(REG_AF, 1, value);
+    set8(src, high, value);
 
-    set_flag(FLAG_Z, 0);
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0);
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 4;
+    return 8;
 }
 
-/* rotates A right , old bit 0 to carry flag*/
-int RRCA(){
-    uint8_t value = get8(REG_AF, 1);
+/* rotates 8-bit register right , old bit 0 to carry flag*/
+int rotate_right_r(RegisterIndex src , int high){
+    uint8_t value = get8(src, high);
     /* get old bit 0 for carry*/
     int carry = value & 1;
     value = ((value >> 1) & 0x7F) | (carry << 7);
-    set8(REG_AF, 1, value);
+    set8(src, high, value);
 
-    set_flag(FLAG_Z, 0);
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0);
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 4;
+    return 8;
 }
 
+/* rotate 8-bit register right through carry flag */
+int rotate_right_carry_r(RegisterIndex src, int high){
+    uint8_t value = get8(src, high);
+    /* get old bit 0 for carry*/
+    int carry = value & 1;
+    int curr_carry = get_flag(FLAG_C);
+    value = ((value >> 1) & 0x7F) | (curr_carry << 7);
+    set8(src, high, value);
+
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 8;
+}
+
+/* rotates value at (HL) left */
+int rotate_left_m() {
+    uint16_t address = get16(REG_HL);
+    uint8_t value = memory_read(address);
+    int carry = (value >> 7) & 1;
+
+    value = (value << 1) | carry;
+
+    memory_write(address, value);
+
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 16; 
+}
+
+/* rotates value at (HL) left through carry */
+int rotate_left_carry_m() {
+    uint16_t address = get16(REG_HL);
+    uint8_t value = memory_read(address);
+    int carry = (value >> 7) & 1;
+    int curr_carry = get_flag(FLAG_C);
+
+    value = ((value << 1) & (~1)) | curr_carry;
+
+    memory_write(address, value);
+
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 16;
+}
+
+/* rotates value at (HL) right*/
+int rotate_right_m() {
+    uint16_t address = get16(REG_HL);
+    uint8_t value = memory_read(address);
+    int carry = value & 1;
+
+    value = ((value >> 1) & 0x7F) | (carry << 7);
+
+    memory_write(address, value);
+
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 16;
+}
+
+/* rotates value at (HL) right through carry */
+int rotate_right_carry_m() {
+    uint16_t address = get16(REG_HL);
+    uint8_t value = memory_read(address);
+    int carry = value & 1;
+    int curr_carry = get_flag(FLAG_C);
+
+    value = ((value >> 1) & 0x7F) | (curr_carry << 7);
+
+    memory_write(address, value);
+
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 16;
+}
+/* shifts 8-bit register left into carry, LSB set to 0 */
+int SLA_r(RegisterIndex src, int high){
+    uint8_t value = get8(src, high);
+    /* get old bit 7 for carry*/
+    int carry = ((value >> 7) & 1);
+
+    value = (value << 1 | carry) & 0xFE;
+
+    set8(src, high, value);
+    
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 8;
+}
+
+/* shifts 8-bit value stored in (HL) left into carry, LSB set to 0 */
+int SLA_r(){
+    uint16_t addr = get16(REG_HL);
+    uint8_t value = memory_read(addr);
+    /* get old bit 7 for carry*/
+    int carry = ((value >> 7) & 1);
+
+    value = (value << 1 | carry) & 0xFE;
+
+    memory_write(addr,value);
+    
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 8;
+}
+
+/* shifts 8-bit register right into carry, MSB extends */
+int SRA_r(RegisterIndex src, int high){
+    uint8_t value = get8(src, high);
+    /* get old bit 0 for carry*/
+    int carry = value & 1;
+    value = (value >> 1) | (value & 0x80);
+
+    set8(src, high, value);
+    
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 8;
+}
+
+/* shifts 8-bit value stored in (HL) right into carry, MSB extends */
+int SLA_r(){
+    uint16_t addr = get16(REG_HL);
+    uint8_t value = memory_read(addr);
+    /* get old bit 0 for carry*/
+    int carry = value & 1;
+    value = (value >> 1) | (value & 0x80);
+
+    memory_write(addr,value);
+    
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 8;
+}
