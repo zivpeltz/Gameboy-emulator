@@ -1,7 +1,11 @@
 #include "registers.h"
 #include "memory.h"
 
-
+/* used for logic ops*/
+#define AND 0
+#define OR 1
+#define XOR 2
+#define SWAP_NIBBLES(x) ((((x) >> 4) & 0x0F) | (((x) << 4) & 0xF0))
 /* 
 -number returned by every function is the amount of CPU cycles the simulated run of that function takes 
 
@@ -49,6 +53,8 @@ int load_R2abs(uint16_t address, RegisterIndex reg, int high) {
     return 16;
 }
 
+
+
 /*================== 16-BIT LOAD OPERATIONS =======================*/
 
 /* register to register 16-bit LD function*/
@@ -66,67 +72,380 @@ int load_16_I2R(RegisterIndex dst, uint16_t value){
 
 /*================== ARITHMETIC OPERATIONS =======================*/
 
-/* helper function, checks if the result of an addition creates a carry from bit 7 */
-int check_for_C_flag(uint16_t val) {
-    // Isolate bit 8 (0x0100) and shift it down to return 1 or 0
-    return (val & 0x0100) >> 8; 
-}
-
-/* helper function, checks if the addition of two 8-bit values creates a half-carry */
-int check_for_H_flag(uint8_t a, uint8_t b) {
-    // Isolate the lower 4 bits of both operands, add them, and check if bit 4 is set
-    return (((a & 0x0F) + (b & 0x0F)) & 0x10) >> 4; 
-}
-
-/* Core 8-bit ADD logic. Handles the math and flag setting, completely agnostic of operand source. */
-void alu_add8(RegisterIndex dst, uint8_t value, int high) {
+/* Core 8-bit ALU logic. 
+ * sub: 1 for SUB/SBC, 0 for ADD/ADC
+ * use_carry: 1 for ADC/SBC, 0 for standard ADD/SUB 
+ * set_res: 1 for all operations but CP
+ */
+void ALU8(RegisterIndex dst, 
+    uint8_t value, 
+    int high, 
+    int sub, 
+    int use_carry, 
+    int set_res) 
+    {
     uint8_t curr = get8(dst, high);
-    uint16_t result = (uint16_t)curr + (uint16_t)value; 
-
-    set8(dst, high, (uint8_t)result);
     
-    /*  Z: Set if the 8-bit result is exactly 0 */
+    /* Fetch the incoming carry state (1 or 0) ONLY if this is an ADC/SBC instruction */
+    int carry_in = (use_carry && (get_flag('C') == 1)) ? 1 : 0;
+
+    int result;
+    int h_flag, c_flag;
+
+    if (sub) {
+        /*Mathematical result of SUB / SBC */
+        result = curr - value - carry_in;
+        
+        /* Half-borrow: lower nibble drops below 0 */
+        h_flag = ((curr & 0x0F) - (value & 0x0F) - carry_in) < 0;
+        
+        /* Full-borrow: full byte drops below 0 */
+        c_flag = result < 0;
+    } else {
+        /* Mathematical result of ADD / ADC */
+        result = curr + value + carry_in;
+        
+        /* Half-carry: lower nibble exceeds 15 */
+        h_flag = ((curr & 0x0F) + (value & 0x0F) + carry_in) > 0x0F;
+        
+        /* Full-carry: full byte exceeds 255 */
+        c_flag = result > 0xFF;
+    }
+
+    /* Apply the truncated 8-bit result */
+    if (set_res) set8(dst, high, (uint8_t)result);
+    
+    
+    /* Set Flags */
     set_flag('Z', ((uint8_t)result == 0) ? 1 : 0);
-    /* N: Always reset for ADD */
-    set_flag('N', 0);
-    /*  H: Requires the original operands to calculate the lower-nibble overflow */
-    set_flag('H', check_for_H_flag(curr, value));
-    /* C: Check the 16-bit result for an overflow past 8 bits */
-    set_flag('C', check_for_C_flag(result));
+    set_flag('N', sub);
+    set_flag('H', h_flag ? 1 : 0);
+    set_flag('C', c_flag ? 1 : 0);
 }
 
-/* ADD operation from immediate/memory to an 8-bit register */
-int add_I2R(RegisterIndex dst, uint8_t value, int high) {
-    alu_add8(dst,value,high);
-    return 4; 
+/* ALU operation from immediate/memory to an 8-bit register */
+int ALU8_I2R(RegisterIndex dst, uint8_t value, int high , int sub) {
+    ALU8(dst,value,high,sub,0,1);
+    return 8; 
 }
 
-/* ADD operation from memory to an 8-bit register */
-int add_M2R(RegisterIndex dst, RegisterIndex addressreg , int high){
+/* ALU operation from memory to an 8-bit register */
+int ALU8_M2R(RegisterIndex dst, RegisterIndex addressreg , int high , int sub){
     uint16_t address = get16(addressreg);
     uint8_t value = memory_read(address);
 
-    alu_add8(dst, value, high);
+    ALU8(dst, value, high, sub,0,1);
 
     return 8;
 }
 
-/* ADD operation from 8-bit register to an 8-bit register */
-int add_R2R(RegisterIndex dst, RegisterIndex src , int dsthigh, int srchigh){
+/* ALU operation from 8-bit register to an 8-bit register */
+int ALU8_R2R(RegisterIndex dst, RegisterIndex src , int dsthigh, int srchigh, int sub){
     uint8_t value = get8(src,srchigh);
-    alu_add8(dst, value, dsthigh);
+    ALU8(dst, value, dsthigh, sub,0,1);
 
     return 4;
 }
 
+/* Adds the value of an 8-bit register and the Carry Flag to A. */
+int ADC_R2R(RegisterIndex src, int srchigh) {
+    uint8_t value = get8(src, srchigh);
+    ALU8(REG_AF, value, 1, 0, 1, 1); 
+    
+    return 4; 
+}
+
+/* Adds an immediate 8-bit value and the Carry Flag to A. */
+int ADC_I2R(uint8_t immediate_value) {
+    ALU8(REG_AF, immediate_value, 1, 0, 1, 1); 
+
+    return 8; 
+}
+
+/* Subtracts the value of an 8-bit register and the Carry Flag from A */
+int SBC_R2R(RegisterIndex src, int srchigh) {
+    uint8_t value = get8(src, srchigh);
+    ALU8(REG_AF, value, 1, 1, 1, 1); 
+    
+    return 4; 
+}
+
+/* Subtracts an immediate 8-bit value and the Carry Flag from A  */
+int SBC_I2R(uint8_t immediate_value) {
+    ALU8(REG_AF, immediate_value, 1, 1, 1, 1); 
+    
+    return 8; 
+}
+
+/* performs logical operation of value with what is saved at A, saves result to A */
+void LOGIC_OP(uint8_t value, int op) {
+    switch(op) {
+        case(OR):
+            value |= get8(REG_AF, 1);
+            set_flag('H', 0); 
+            break;
+        case(AND):
+            value &= get8(REG_AF, 1);
+            set_flag('H', 1); /* sets for AND*/
+            break;   
+        case(XOR):
+            value ^= get8(REG_AF, 1);
+            set_flag('H', 0);
+            break; 
+    }
+
+    set8(REG_AF,1,value);
+
+    /*common for all ops*/
+    set_flag('Z', ((value == 0) ? 1 : 0));
+    set_flag('N', 0);
+    set_flag('C', 0);
+}
 
 
+/* performs logical operation A with register  */
+int LOGIC_R(RegisterIndex src, int high, int op) {
+    uint8_t value = get8(src,high);
+    LOGIC_OP(value,op);
+
+    return 4;
+}
+
+/* performs logical operation A with what is saved at the address stored in HL */
+int LOGIC_M(int op) {
+    uint8_t value = memory_read(get16(REG_HL));
+    LOGIC_OP(value,op);
+    return 8;
+}
+
+/* compares A with register src and sets flags (result not saved )*/
+int CP_R(RegisterIndex src, int high){
+    uint8_t value = get8(src,high);
+    ALU8(REG_AF , value, 1, 1 , 0 , 0);
+    return 4;
+}
+
+/* compares A with value saved at (HL) address and sets flags (result not saved )*/
+int CP_M(){
+    uint8_t value = memory_read(get16(REG_HL));
+    ALU8(REG_AF , value, 1, 1 , 0 , 0);
+    return 8;
+}
+
+/* performes 8-bit INC operation on register src */
+int INC_DEC_8_R(RegisterIndex src, int high, int dec) {
+    int curr_carry = get_flag('C'); /* extract to restore after using ALU8 */
+    ALU8(src, 1 , high, dec, 0, 1);
+    set_flag('C', curr_carry); /* restore since ALU8 may have destoryed prev value*/
+
+    return 4;
+}
+
+/* performs 8-bit INC/DEC operation on memory address (HL) */
+int INC_DEC_8_M(int dec) {
+    uint16_t address = get16(REG_HL);
+    uint8_t curr = memory_read(address);
+    
+    uint8_t result = dec ? (curr - 1) : (curr + 1);
+    
+    memory_write(address, result);
+    
+    set_flag('Z', (result == 0) ? 1 : 0);
+    set_flag('N', dec);
+    
+    if (dec) {
+        /* Half-borrow check for decrement */
+        set_flag('H', ((curr & 0x0F) == 0x00) ? 1 : 0);
+    } else {
+        /* Half-carry check for increment */
+        set_flag('H', ((curr & 0x0F) == 0x0F) ? 1 : 0);
+    }
+    
+
+    return 12;
+}
+
+/* Core 16-bit ALU logic, only does addition since there is no SUB for 16-bit  */
+void ALU16(RegisterIndex dst, uint16_t value){
+    uint16_t curr = get16(dst);
+
+    /* Cast to 32-bit to easily catch the 16-bit overflow */
+    uint32_t result = (uint32_t)curr + (uint32_t)value;
+    
+    set_flag('N', 0);
+
+    /* H: Set if there is a carry from bit 11. Mask the lowest 12 bits */
+    set_flag('H', (((curr & 0x0FFF) + (value & 0x0FFF)) > 0x0FFF) ? 1 : 0);
+    
+    /* C: Set if there is a carry out of bit 15 (result exceeds 16 bits) */
+    set_flag('C', (result > 0xFFFF) ? 1 : 0);
+
+    set16(dst,(uint16_t)result);
+
+}
+
+/* ALU ADD operation from 16-bit register to an 16-bit register*/
+int ADD_16_R(RegisterIndex dst, RegisterIndex src){
+    uint16_t value = get16(src);
+    ALU16(dst,value);
+
+    return 8;
+}
+
+/* Handles ADD SP, e (where 'e' is a signed 1-byte immediate) */
+int ADD_16_SP_OFFSET(uint8_t imm) {
+    /* Force the unsigned byte into a signed 8-bit integer */
+    int8_t offset = (int8_t)imm; 
+    
+    uint16_t sp = get16(REG_SP);
+    
+    uint16_t result = sp + offset;
+    
+    set16(REG_SP, result);
+
+    /* Flags are evaluated using strictly 8-bit logic rules */
+    set_flag('Z', 0);
+    set_flag('N', 0);
+    set_flag('H', (((sp & 0x0F) + (offset & 0x0F)) > 0x0F) ? 1 : 0);
+    set_flag('C', (((sp & 0xFF) + (offset & 0xFF)) > 0xFF) ? 1 : 0);
+    
+    return 16;
+}
 
 
+/* 16-bit register increment or decrement*/
+int INC_DEC_16(RegisterIndex src, int dec) {
+    uint16_t curr = get16(src);
+    curr = (dec == 0) ? curr + 1 : curr - 1;
+    set16(src ,curr);
+    return 8;
+}
+/*================== MISCELLANEOUS OPERATIONS =======================*/
+
+/* swaps the nibbles of a value in an 8-bit register */
+int SWAP_R(RegisterIndex src, int high){
+    uint8_t value = get8(src,high);
+    value = SWAP_NIBBLES(value);
+    set8(src,high, value);
+    (value == 0) ? set_flag('Z', 1) : set_flag('Z', 0);
+    set_flag('N', 0);
+    set_flag('H', 0);
+    set_flag('C', 0);
+    return 8;
+}
+
+/* swaps the nibbles of a value in (HL) */
+int SWAP_M(){
+    uint16_t addr = get16(REG_HL);
+    uint8_t value = memory_read(addr);
+    value = SWAP_NIBBLES(value);
+    memory_write(addr,value);
+    (value == 0) ? set_flag('Z', 1) : set_flag('Z', 0);
+    set_flag('N', 0);
+    set_flag('H', 0);
+    set_flag('C', 0);
+    return 16;
+}
+
+/* Decimal Adjust Accumulator 
+ * Corrects the A register into a valid BCD format after an arithmetic operation.
+ */
+int DAA(){
+    uint8_t a = get8(REG_AF, 1); /* get A */
+    
+    int n_flag = get_flag('N');
+    int h_flag = get_flag('H');
+    int c_flag = get_flag('C');
+
+    int correction = 0;
+    int set_carry = 0; /* Tracks if we need to set the C flag at the end */
+
+    if (n_flag == 0) {
+        /*  PREVIOUS OPERATION WAS ADDITION  */
+        /* If the lower nibble overflowed the 4-bit boundary (H flag) */
+        /* OR if it just mathematically exceeded 9, we must correct the ones column. */
+        if (h_flag || (a & 0x0F) > 0x09) {
+            correction |= 0x06;
+        }
+        
+        /* If the upper nibble overflowed the 8-bit boundary (C flag) */
+        /* OR if it mathematically exceeded 9, we must correct the tens column. */
+        if (c_flag || a > 0x99) {
+            correction |= 0x60;
+            set_carry = 1; 
+        }
+        
+        a += correction; /* Apply positive correction */
+        
+    } else {
+        /* PREVIOUS OPERATION WAS SUBTRACTION */
+        
+        /* If a half-borrow occurred, the lower nibble is broken, correct it. */
+        if (h_flag) {
+            correction |= 0x06;
+        }
+        
+        /* If a full borrow occurred, the upper nibble is broken, correct it. */
+        if (c_flag) {
+            correction |= 0x60;
+            set_carry = 1; /* Preserve the carry flag */
+        }
+        
+        a -= correction; /* Apply negative correction */
+    }
+
+    /* Apply the corrected value back to A */
+    set8(REG_AF, 1, a);
+
+    /* Update Flags */
+    set_flag('Z', (a == 0) ? 1 : 0);
+    set_flag('H', 0); /* DAA always hard-resets the H flag to 0 */
+    
+    /* N flag is STRICTLY PRESERVED. Do not touch it. */
+    
+    /* C flag is set if the correction pushed it over the edge, otherwise it retains its old state if it was already 1. */
+    if (set_carry) {
+        set_flag('C', 1);
+    }
+    /* Note: If set_carry is 0, we DO NOT reset C to 0. It must stay 1 if it was already 1 before DAA. */
+
+    return 4; // DAA takes 4 clock cycles
+}
 
 
 /*================== STACK POINTER OPERATIONS =======================*/
 /* pushes 16-bit register onto stack */
 int PUSH(RegisterIndex src){
- /*TODO*/
+    uint16_t sp = get16(REG_SP);
+    uint8_t low = get8(src, 0);
+    uint8_t high = get8(src, 1);
+    sp -= 1;
+    memory_write(sp, high);
+    sp -= 1;
+    memory_write(sp, low);
+    set16(REG_SP, sp);
+
+    return 16;
+}
+
+/* pops 16-bit value from stack */
+int POP(RegisterIndex dst){
+    uint16_t sp = get16(REG_SP);
+
+    uint8_t low = memory_read(sp);
+    sp += 1;
+
+    uint8_t high = memory_read(sp);
+    sp += 1;
+    /* edge case since lower bits of AF are Read only */
+    if (dst == REG_AF) {
+        low &= 0xF0; /* Force bits 3, 2, 1, 0 to always stay 0 */
+    }
+
+    set8(dst, 0, low);
+    set8(dst, 1, high);
+
+    set16(REG_SP, sp);
+    
+    return 12;
 }
