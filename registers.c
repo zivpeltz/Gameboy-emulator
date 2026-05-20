@@ -28,7 +28,7 @@ int get_ime(void) { return ime; }
 /* Schedules IME to turn on after the NEXT instruction */
 void schedule_ime(void) { ime_delay = 2; }
 
-/* Called by your main cpu_step() loop every cycle */
+/* Called by main cpu_step() loop every cycle */
 void update_ime_delay(void) {
     if (ime_delay > 0) {
         ime_delay--;
