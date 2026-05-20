@@ -412,6 +412,75 @@ int DAA(){
     return 4; // DAA takes 4 clock cycles
 }
 
+/* flips all of A's bits */
+int CPL(){
+    uint8_t value = get8(REG_AF,1);
+    value = ~value;
+    set8(REG_AF,1,value);
+
+    set_flag('N', 1);
+    set_flag('H', 1);
+
+    return 4;
+}
+
+/* complements carry flag */
+int CCF(){
+    int curr = get_flag('C');
+    set_flag('C', !curr);
+
+    set_flag('N', 0);
+    set_flag('H', 0);
+
+    return 4;
+
+}
+
+/* sets carry flag */
+int SCF(){
+    set_flag('C', 1);
+    set_flag('N', 0);
+    set_flag('H', 0);
+
+    return 4;
+
+}
+/* does nothing */
+int NOP(){
+    return 4;
+}
+
+/* Suspends CPU execution until an interrupt occurs */
+int HALT() {
+    set_halt(1);
+    return 4;
+}
+
+/* Disables all interrupts by resetting the IME flag */
+int DI() {
+    set_ime(0);
+    return 4; 
+}
+
+/* Enables interrupts, but with a 1-instruction delay */
+int EI() {
+    schedule_ime();
+    return 4;
+}
+
+/* Halts the CPU and LCD oscillator until a Joypad press */
+int STOP() {
+    /* Set the system to stopped */
+    set_stop(1);
+    
+    /* Increment the PC to consume the mandatory 0x00 byte */
+    uint16_t pc = get16(REG_PC);
+    set16(REG_PC, pc + 1);
+    
+    return 4; 
+}
+
+
 
 /*================== STACK POINTER OPERATIONS =======================*/
 /* pushes 16-bit register onto stack */

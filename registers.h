@@ -25,4 +25,17 @@ void set16(RegisterIndex reg, uint16_t val);
 int get_flag(char F);
 int set_flag(char F, int val);
 
+/* CPU State Operations */
+void set_halt(int state);
+int get_halt(void);
+
+void set_stop(int state);
+int get_stop(void);
+
+void set_ime(int state);
+int get_ime(void);
+
+void schedule_ime(void);
+void update_ime_delay(void);
+
 #endif // REGISTERS_H

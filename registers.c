@@ -6,7 +6,40 @@
 
 /* private global register box */
 static uint16_t registers[6]; 
+/* private global CPU state */
+static int is_halted = 0;
+static int ime = 0;
+static int ime_delay = 0; // Tracks the EI instruction delay
+static int is_stopped = 0;
 
+
+
+
+
+void set_stop(int state) { is_stopped = state; }
+
+int get_stop(void) { return is_stopped; }
+
+void set_ime(int state) { ime = state; }
+
+int get_ime(void) { return ime; }
+
+
+/* Schedules IME to turn on after the NEXT instruction */
+void schedule_ime(void) { ime_delay = 2; }
+
+/* Called by your main cpu_step() loop every cycle */
+void update_ime_delay(void) {
+    if (ime_delay > 0) {
+        ime_delay--;
+        if (ime_delay == 0) {
+            ime = 1;
+        }
+    }
+}
+
+void set_halt(int state) { is_halted = state; }
+int get_halt(void) { return is_halted; }
 
 /*8-bit register operations*/
 uint8_t get8(RegisterIndex reg, int high) {
