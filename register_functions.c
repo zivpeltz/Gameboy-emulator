@@ -87,7 +87,7 @@ void ALU8(RegisterIndex dst,
     uint8_t curr = get8(dst, high);
     
     /* Fetch the incoming carry state (1 or 0) ONLY if this is an ADC/SBC instruction */
-    int carry_in = (use_carry && (get_flag('C') == 1)) ? 1 : 0;
+    int carry_in = (use_carry && (get_flag(FLAG_C) == 1)) ? 1 : 0;
 
     int result;
     int h_flag, c_flag;
@@ -117,10 +117,10 @@ void ALU8(RegisterIndex dst,
     
     
     /* Set Flags */
-    set_flag('Z', ((uint8_t)result == 0) ? 1 : 0);
-    set_flag('N', sub);
-    set_flag('H', h_flag ? 1 : 0);
-    set_flag('C', c_flag ? 1 : 0);
+    set_flag(FLAG_Z, ((uint8_t)result == 0) ? 1 : 0);
+    set_flag(FLAG_N, sub);
+    set_flag(FLAG_H, h_flag ? 1 : 0);
+    set_flag(FLAG_C, c_flag ? 1 : 0);
 }
 
 /* ALU operation from immediate/memory to an 8-bit register */
@@ -182,24 +182,24 @@ void LOGIC_OP(uint8_t value, int op) {
     switch(op) {
         case(OR):
             value |= get8(REG_AF, 1);
-            set_flag('H', 0); 
+            set_flag(FLAG_H, 0); 
             break;
         case(AND):
             value &= get8(REG_AF, 1);
-            set_flag('H', 1); /* sets for AND*/
+            set_flag(FLAG_H, 1); /* sets for AND*/
             break;   
         case(XOR):
             value ^= get8(REG_AF, 1);
-            set_flag('H', 0);
+            set_flag(FLAG_H, 0);
             break; 
     }
 
     set8(REG_AF,1,value);
 
     /*common for all ops*/
-    set_flag('Z', ((value == 0) ? 1 : 0));
-    set_flag('N', 0);
-    set_flag('C', 0);
+    set_flag(FLAG_Z, ((value == 0) ? 1 : 0));
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_C, 0);
 }
 
 
@@ -234,9 +234,9 @@ int CP_M(){
 
 /* performes 8-bit INC operation on register src */
 int INC_DEC_8_R(RegisterIndex src, int high, int dec) {
-    int curr_carry = get_flag('C'); /* extract to restore after using ALU8 */
+    int curr_carry = get_flag(FLAG_C); /* extract to restore after using ALU8 */
     ALU8(src, 1 , high, dec, 0, 1);
-    set_flag('C', curr_carry); /* restore since ALU8 may have destoryed prev value*/
+    set_flag(FLAG_C, curr_carry); /* restore since ALU8 may have destoryed prev value*/
 
     return 4;
 }
@@ -250,15 +250,15 @@ int INC_DEC_8_M(int dec) {
     
     memory_write(address, result);
     
-    set_flag('Z', (result == 0) ? 1 : 0);
-    set_flag('N', dec);
+    set_flag(FLAG_Z, (result == 0) ? 1 : 0);
+    set_flag(FLAG_N, dec);
     
     if (dec) {
         /* Half-borrow check for decrement */
-        set_flag('H', ((curr & 0x0F) == 0x00) ? 1 : 0);
+        set_flag(FLAG_H, ((curr & 0x0F) == 0x00) ? 1 : 0);
     } else {
         /* Half-carry check for increment */
-        set_flag('H', ((curr & 0x0F) == 0x0F) ? 1 : 0);
+        set_flag(FLAG_H, ((curr & 0x0F) == 0x0F) ? 1 : 0);
     }
     
 
@@ -272,13 +272,13 @@ void ALU16(RegisterIndex dst, uint16_t value){
     /* Cast to 32-bit to easily catch the 16-bit overflow */
     uint32_t result = (uint32_t)curr + (uint32_t)value;
     
-    set_flag('N', 0);
+    set_flag(FLAG_N, 0);
 
     /* H: Set if there is a carry from bit 11. Mask the lowest 12 bits */
-    set_flag('H', (((curr & 0x0FFF) + (value & 0x0FFF)) > 0x0FFF) ? 1 : 0);
+    set_flag(FLAG_H, (((curr & 0x0FFF) + (value & 0x0FFF)) > 0x0FFF) ? 1 : 0);
     
     /* C: Set if there is a carry out of bit 15 (result exceeds 16 bits) */
-    set_flag('C', (result > 0xFFFF) ? 1 : 0);
+    set_flag(FLAG_C, (result > 0xFFFF) ? 1 : 0);
 
     set16(dst,(uint16_t)result);
 
@@ -304,10 +304,10 @@ int ADD_16_SP_OFFSET(uint8_t imm) {
     set16(REG_SP, result);
 
     /* Flags are evaluated using strictly 8-bit logic rules */
-    set_flag('Z', 0);
-    set_flag('N', 0);
-    set_flag('H', (((sp & 0x0F) + (offset & 0x0F)) > 0x0F) ? 1 : 0);
-    set_flag('C', (((sp & 0xFF) + (offset & 0xFF)) > 0xFF) ? 1 : 0);
+    set_flag(FLAG_Z, 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, (((sp & 0x0F) + (offset & 0x0F)) > 0x0F) ? 1 : 0);
+    set_flag(FLAG_C, (((sp & 0xFF) + (offset & 0xFF)) > 0xFF) ? 1 : 0);
     
     return 16;
 }
@@ -327,10 +327,10 @@ int SWAP_R(RegisterIndex src, int high){
     uint8_t value = get8(src,high);
     value = SWAP_NIBBLES(value);
     set8(src,high, value);
-    (value == 0) ? set_flag('Z', 1) : set_flag('Z', 0);
-    set_flag('N', 0);
-    set_flag('H', 0);
-    set_flag('C', 0);
+    (value == 0) ? set_flag(FLAG_Z, 1) : set_flag(FLAG_Z, 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
     return 8;
 }
 
@@ -340,10 +340,10 @@ int SWAP_M(){
     uint8_t value = memory_read(addr);
     value = SWAP_NIBBLES(value);
     memory_write(addr,value);
-    (value == 0) ? set_flag('Z', 1) : set_flag('Z', 0);
-    set_flag('N', 0);
-    set_flag('H', 0);
-    set_flag('C', 0);
+    (value == 0) ? set_flag(FLAG_Z, 1) : set_flag(FLAG_Z, 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
     return 16;
 }
 
@@ -353,9 +353,9 @@ int SWAP_M(){
 int DAA(){
     uint8_t a = get8(REG_AF, 1); /* get A */
     
-    int n_flag = get_flag('N');
-    int h_flag = get_flag('H');
-    int c_flag = get_flag('C');
+    int n_flag = get_flag(FLAG_N);
+    int h_flag = get_flag(FLAG_H);
+    int c_flag = get_flag(FLAG_C);
 
     int correction = 0;
     int set_carry = 0; /* Tracks if we need to set the C flag at the end */
@@ -398,14 +398,14 @@ int DAA(){
     set8(REG_AF, 1, a);
 
     /* Update Flags */
-    set_flag('Z', (a == 0) ? 1 : 0);
-    set_flag('H', 0); /* DAA always hard-resets the H flag to 0 */
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_H, 0); /* DAA always hard-resets the H flag to 0 */
     
     /* N flag is STRICTLY PRESERVED. Do not touch it. */
     
     /* C flag is set if the correction pushed it over the edge, otherwise it retains its old state if it was already 1. */
     if (set_carry) {
-        set_flag('C', 1);
+        set_flag(FLAG_C, 1);
     }
     /* Note: If set_carry is 0, we DO NOT reset C to 0. It must stay 1 if it was already 1 before DAA. */
 
@@ -418,19 +418,19 @@ int CPL(){
     value = ~value;
     set8(REG_AF,1,value);
 
-    set_flag('N', 1);
-    set_flag('H', 1);
+    set_flag(FLAG_N, 1);
+    set_flag(FLAG_H, 1);
 
     return 4;
 }
 
 /* complements carry flag */
 int CCF(){
-    int curr = get_flag('C');
-    set_flag('C', !curr);
+    int curr = get_flag(FLAG_C);
+    set_flag(FLAG_C, !curr);
 
-    set_flag('N', 0);
-    set_flag('H', 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
 
     return 4;
 
@@ -438,9 +438,9 @@ int CCF(){
 
 /* sets carry flag */
 int SCF(){
-    set_flag('C', 1);
-    set_flag('N', 0);
-    set_flag('H', 0);
+    set_flag(FLAG_C, 1);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
 
     return 4;
 
@@ -518,3 +518,64 @@ int POP(RegisterIndex dst){
     
     return 12;
 }
+
+
+
+/*================== ROTATES\SHIFTS OPERATIONS =======================*/
+
+/* 
+note: here on the rotates i set the Z flag to zero unconditonally, this does not match the 
+documant im working with but sources online claim that in actual gameboy systems this is the case
+*/
+
+/* rotates A left */
+int RCLA() {
+    uint8_t value = get8(REG_AF, 1);
+    /* get old bit 7 for carry*/
+    int carry = ((value >> 7) & 1);
+
+    value = (value << 1 | carry);
+
+    set8(REG_AF, 1, value);
+    
+    set_flag(FLAG_Z, 0); 
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 4;
+}
+
+/* rotates A left and sets old carry as bit 0*/
+int RLA() {
+    uint8_t value = get8(REG_AF, 1);
+    /* get old bit 7 for carry*/
+    int carry = ((value >> 7) & 1);
+    int curr_carry = get_flag(FLAG_C);
+    value = ((value << 1) & (~1)) | curr_carry;
+    set8(REG_AF, 1, value);
+
+    set_flag(FLAG_Z, 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 4;
+}
+
+/* rotates A right , old bit 0 to carry flag*/
+int RRCA(){
+    uint8_t value = get8(REG_AF, 1);
+    /* get old bit 0 for carry*/
+    int carry = value & 1;
+    value = ((value >> 1) & 0x7F) | (carry << 7);
+    set8(REG_AF, 1, value);
+
+    set_flag(FLAG_Z, 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 4;
+}
+

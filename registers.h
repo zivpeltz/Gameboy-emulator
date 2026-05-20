@@ -13,6 +13,12 @@ typedef enum {
     REG_PC = 5
 } RegisterIndex;
 
+/* Flag Bitmasks for the F Register (Lower 8 bits of AF) */
+#define FLAG_Z (1 << 7)
+#define FLAG_N (1 << 6)
+#define FLAG_H (1 << 5)
+#define FLAG_C (1 << 4)
+
 /* 8-bit register operations */
 uint8_t get8(RegisterIndex reg, int high);
 void set8(RegisterIndex reg, int high, uint8_t value);
@@ -22,8 +28,8 @@ uint16_t get16(RegisterIndex reg);
 void set16(RegisterIndex reg, uint16_t val);
 
 /* flag operations */
-int get_flag(char F);
-int set_flag(char F, int val);
+int get_flag(uint8_t flag_mask);
+void set_flag(uint8_t flag_mask, int val);
 
 /* CPU State Operations */
 void set_halt(int state);
