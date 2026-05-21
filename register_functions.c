@@ -4,7 +4,7 @@
 
 #define SWAP_NIBBLES(x) ((((x) >> 4) & 0x0F) | (((x) << 4) & 0xF0))
 /* 
--number returned by every function is the amount of CPU cycles the simulated run of that function takes 
+-number returned by every function is the amount of CPU cycles the simulated run of that function takes (internal time, no fetching) 
 
 -this section here is basically "core" functions, i.e RISC like operations. more complicated opcodes would be
 implemented as pseudo instructions of these core operations.
@@ -1050,7 +1050,7 @@ int BIT_m(int b) {
     set_flag(FLAG_H, 1);
 
 
-    return 4; /* manual claims its 16 but online sources claim otherwise*/ 
+    return 0; /* 12 total - 12 bus = 0 internal delay */ 
 }
 
 /* Sets bit 'b' (0-7) in an 8-bit register */
@@ -1074,7 +1074,7 @@ int SET_m(int b) {
     memory_write(addr,value);
 
 
-    return 4; 
+    return 0; 
 }
 
 /* Resets bit 'b' (0-7) in an 8-bit register */
@@ -1098,7 +1098,7 @@ int RES_m(int b) {
     memory_write(addr,value);
 
 
-    return 4; 
+    return 0; 
 }
 
 
@@ -1107,7 +1107,7 @@ int RES_m(int b) {
 /* sets PC value to target address */
 int JP_addr(uint16_t addr){
     set16(REG_PC, addr);
-    return 0;
+    return 4;
 }
 
 /* Jump absolute if Zero flag is reset (JP NZ, nn) */
