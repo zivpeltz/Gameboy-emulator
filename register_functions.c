@@ -1,10 +1,7 @@
 #include "registers.h"
 #include "memory.h"
 
-/* used for logic ops*/
-#define AND 0
-#define OR 1
-#define XOR 2
+
 #define SWAP_NIBBLES(x) ((((x) >> 4) & 0x0F) | (((x) << 4) & 0xF0))
 /* 
 -number returned by every function is the amount of CPU cycles the simulated run of that function takes 
@@ -177,44 +174,99 @@ int SBC_I2R(uint8_t immediate_value) {
     return 8; 
 }
 
-/* performs logical operation of value with what is saved at A, saves result to A */
-void LOGIC_OP(uint8_t value, int op) {
-    switch(op) {
-        case(OR):
-            value |= get8(REG_AF, 1);
-            set_flag(FLAG_H, 0); 
-            break;
-        case(AND):
-            value &= get8(REG_AF, 1);
-            set_flag(FLAG_H, 1); /* sets for AND*/
-            break;   
-        case(XOR):
-            value ^= get8(REG_AF, 1);
-            set_flag(FLAG_H, 0);
-            break; 
-    }
-
-    set8(REG_AF,1,value);
-
-    /*common for all ops*/
-    set_flag(FLAG_Z, ((value == 0) ? 1 : 0));
+/* Performs bitwise AND between A and a register */
+int AND_r(RegisterIndex src, int high) {
+    uint8_t a = get8(REG_AF, 1);
+    uint8_t val = get8(src, high);
+    
+    a &= val;
+    set8(REG_AF, 1, a);
+    
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
     set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 1); /* Hardware quirk: AND always sets H to 1 */
     set_flag(FLAG_C, 0);
-}
-
-
-/* performs logical operation A with register  */
-int LOGIC_R(RegisterIndex src, int high, int op) {
-    uint8_t value = get8(src,high);
-    LOGIC_OP(value,op);
-
+    
     return 4;
 }
 
-/* performs logical operation A with what is saved at the address stored in HL */
-int LOGIC_M(int op) {
-    uint8_t value = memory_read(get16(REG_HL));
-    LOGIC_OP(value,op);
+/* Performs bitwise OR between A and a register */
+int OR_r(RegisterIndex src, int high) {
+    uint8_t a = get8(REG_AF, 1);
+    uint8_t val = get8(src, high);
+    
+    a |= val;
+    set8(REG_AF, 1, a);
+    
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
+    
+    return 4;
+}
+
+/* Performs bitwise XOR between A and a register */
+int XOR_r(RegisterIndex src, int high) {
+    uint8_t a = get8(REG_AF, 1);
+    uint8_t val = get8(src, high);
+    
+    a ^= val;
+    set8(REG_AF, 1, a);
+    
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
+    
+    return 4;
+}
+
+/* Performs bitwise AND between A and memory at (HL) */
+int AND_m() {
+    uint8_t a = get8(REG_AF, 1);
+    uint8_t val = memory_read(get16(REG_HL));
+    
+    a &= val;
+    set8(REG_AF, 1, a);
+    
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 1);
+    set_flag(FLAG_C, 0);
+    
+    return 8;
+}
+
+/* Performs bitwise OR between A and memory at (HL) */
+int OR_m() {
+    uint8_t a = get8(REG_AF, 1);
+    uint8_t val = memory_read(get16(REG_HL));
+    
+    a |= val;
+    set8(REG_AF, 1, a);
+    
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
+    
+    return 8;
+}
+
+/* Performs bitwise XOR between A and memory at (HL) */
+int XOR_m() {
+    uint8_t a = get8(REG_AF, 1);
+    uint8_t val = memory_read(get16(REG_HL));
+    
+    a ^= val;
+    set8(REG_AF, 1, a);
+    
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
+    
     return 8;
 }
 
@@ -745,7 +797,6 @@ int SLA_r(RegisterIndex src, int high){
     /* get old bit 7 for carry */
     int carry = (value >> 7) & 1;
 
-    /* A standard left shift automatically pads the 0th bit with 0 */
     value = value << 1;
 
     set8(src, high, value);
@@ -766,7 +817,6 @@ int SLA_m(){
     /* get old bit 7 for carry */
     int carry = (value >> 7) & 1;
 
-    /* A standard left shift automatically pads the 0th bit with 0 */
     value = value << 1;
 
     memory_write(addr, value);
@@ -852,3 +902,96 @@ int SRL_m(){
 
     return 16;
 }
+
+
+/*================== BIT OPERATIONS =======================*/
+
+/* Tests bit 'b' (0-7) in an 8-bit register */
+int BIT_r(int b, RegisterIndex src, int high) {
+    uint8_t value = get8(src, high);
+    
+
+    int bit_val = (value >> b) & 1;
+
+    /* Z flag is set if the bit is 0 */
+    set_flag(FLAG_Z, (bit_val == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 1);
+
+
+    return 8; 
+}
+
+/* Tests bit 'b' (0-7) in the value stored at memory address (HL) */
+int BIT_m(int b) {
+    uint16_t addr = get16(REG_HL);
+    uint8_t value = memory_read(addr);
+    
+
+    int bit_val = (value >> b) & 1;
+
+    set_flag(FLAG_Z, (bit_val == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 1);
+
+
+    return 12; /* manual claims its 16 but online sources claim otherwise*/ 
+}
+
+/* Sets bit 'b' (0-7) in an 8-bit register */
+int SET_r(int b, RegisterIndex src, int high) {
+    uint8_t value = get8(src, high);
+
+    value |= (1 << b);
+
+    set8(src,high,value);
+    return 8; 
+}
+
+/* Sets bit 'b' (0-7) in the value stored at memory address (HL) */
+int SET_m(int b) {
+    uint16_t addr = get16(REG_HL);
+    uint8_t value = memory_read(addr);
+    
+
+    value |= (1 << b);
+
+    memory_write(addr,value);
+
+
+    return 16; 
+}
+
+/* Resets bit 'b' (0-7) in an 8-bit register */
+int RES_r(int b, RegisterIndex src, int high) {
+    uint8_t value = get8(src, high);
+
+    value &= ~(1 << b);
+
+    set8(src,high,value);
+    return 8; 
+}
+
+/* Resets bit 'b' (0-7) in the value stored at memory address (HL) */
+int RES_m(int b) {
+    uint16_t addr = get16(REG_HL);
+    uint8_t value = memory_read(addr);
+    
+
+    value &= ~(1 << b);
+
+    memory_write(addr,value);
+
+
+    return 16; 
+}
+
+
+/*================== JUMP OPERATIONS =======================*/
+
+/* sets PC value to target address */
+int JP_addr(uint16_t addr){
+    set16(REG_SP, addr);
+    return 12;
+}
+
