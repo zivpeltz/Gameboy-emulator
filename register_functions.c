@@ -741,10 +741,12 @@ int rotate_right_carry_m() {
 /* shifts 8-bit register left into carry, LSB set to 0 */
 int SLA_r(RegisterIndex src, int high){
     uint8_t value = get8(src, high);
-    /* get old bit 7 for carry*/
-    int carry = ((value >> 7) & 1);
+    
+    /* get old bit 7 for carry */
+    int carry = (value >> 7) & 1;
 
-    value = (value << 1 | carry) & 0xFE;
+    /* A standard left shift automatically pads the 0th bit with 0 */
+    value = value << 1;
 
     set8(src, high, value);
     
@@ -757,22 +759,24 @@ int SLA_r(RegisterIndex src, int high){
 }
 
 /* shifts 8-bit value stored in (HL) left into carry, LSB set to 0 */
-int SLA_r(){
+int SLA_m(){
     uint16_t addr = get16(REG_HL);
     uint8_t value = memory_read(addr);
-    /* get old bit 7 for carry*/
-    int carry = ((value >> 7) & 1);
+    
+    /* get old bit 7 for carry */
+    int carry = (value >> 7) & 1;
 
-    value = (value << 1 | carry) & 0xFE;
+    /* A standard left shift automatically pads the 0th bit with 0 */
+    value = value << 1;
 
-    memory_write(addr,value);
+    memory_write(addr, value);
     
     set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 16;
 }
 
 /* shifts 8-bit register right into carry, MSB extends */
@@ -792,10 +796,12 @@ int SRA_r(RegisterIndex src, int high){
     return 8;
 }
 
-/* shifts 8-bit value stored in (HL) right into carry, MSB extends */
-int SLA_r(){
+
+/* shifts 8-bit value saved in (HL) right into carry, MSB extends */
+int SRA_m(){
     uint16_t addr = get16(REG_HL);
     uint8_t value = memory_read(addr);
+
     /* get old bit 0 for carry*/
     int carry = value & 1;
     value = (value >> 1) | (value & 0x80);
@@ -807,5 +813,42 @@ int SLA_r(){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
+    return 16;
+}
+
+/* shifts 8-bit register right into carry, MSB sets to 0 */
+int SRL_r(RegisterIndex src, int high){
+    uint8_t value = get8(src, high);
+    /* get old bit 0 for carry*/
+    int carry = value & 1;
+    value = (value >> 1) & 0x7F;
+
+    set8(src, high, value);
+    
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
     return 8;
+}
+
+
+/* shifts 8-bit value saved in (HL) right into carry, MSB set to 0 */
+int SRL_m(){
+    uint16_t addr = get16(REG_HL);
+    uint8_t value = memory_read(addr);
+
+    /* get old bit 0 for carry*/
+    int carry = value & 1;
+    value = (value >> 1) & 0x7F;
+
+    memory_write(addr,value);
+    
+    set_flag(FLAG_Z, (value == 0) ? 1 : 0); 
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, carry);
+
+    return 16;
 }
