@@ -23,7 +23,10 @@ int load_I2R(RegisterIndex dst, int dst_high, uint8_t value) {
     return 0; 
 }
 
-/* memory to/from register 8-bit LD function */
+/* memory to/from register 8-bit LD function 
+    M2R = 1 - for memory to register
+    M2R = 0 - memory from register
+*/
 int load_MR(RegisterIndex addressreg, RegisterIndex reg, int high,int M2R){
     uint16_t address = get16(addressreg);
     if(M2R) set8(reg, high, memory_read(address));
