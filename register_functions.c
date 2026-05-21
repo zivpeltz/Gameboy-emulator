@@ -50,6 +50,31 @@ int load_R2abs(uint16_t address, RegisterIndex reg, int high) {
     return 16;
 }
 
+/* High RAM / IO (0xFF00 + n) loads/stores */
+int LD_A_C() {
+    uint8_t c = get8(REG_BC, 0);
+    uint8_t val = memory_read(0xFF00 + (uint16_t)c);
+    set8(REG_AF, 1, val);
+    return 8;
+}
+
+int LD_C_A() {
+    uint8_t c = get8(REG_BC, 0);
+    memory_write(0xFF00 + (uint16_t)c, get8(REG_AF, 1));
+    return 8;
+}
+
+int LDH_A_n(uint8_t imm) {
+    uint8_t val = memory_read(0xFF00 + (uint16_t)imm);
+    set8(REG_AF, 1, val);
+    return 12;
+}
+
+int LDH_n_A(uint8_t imm) {
+    memory_write(0xFF00 + (uint16_t)imm, get8(REG_AF, 1));
+    return 12;
+}
+
 
 
 /*================== 16-BIT LOAD OPERATIONS =======================*/
@@ -174,6 +199,19 @@ int SBC_I2R(uint8_t immediate_value) {
     return 8; 
 }
 
+/* Memory-based ADC / SBC (operate on value at (HL)) */
+int ADC_M() {
+    uint8_t value = memory_read(get16(REG_HL));
+    ALU8(REG_AF, value, 1, 0, 1, 1);
+    return 8;
+}
+
+int SBC_M() {
+    uint8_t value = memory_read(get16(REG_HL));
+    ALU8(REG_AF, value, 1, 1, 1, 1);
+    return 8;
+}
+
 /* Performs bitwise AND between A and a register */
 int AND_r(RegisterIndex src, int high) {
     uint8_t a = get8(REG_AF, 1);
@@ -284,6 +322,51 @@ int CP_M(){
     return 8;
 }
 
+/* Immediate 8-bit ALU Operations */
+int AND_I2R(uint8_t imm) {
+    uint8_t a = get8(REG_AF, 1);
+    a &= imm;
+    set8(REG_AF, 1, a);
+
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 1);
+    set_flag(FLAG_C, 0);
+
+    return 8;
+}
+
+int OR_I2R(uint8_t imm) {
+    uint8_t a = get8(REG_AF, 1);
+    a |= imm;
+    set8(REG_AF, 1, a);
+
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
+
+    return 8;
+}
+
+int XOR_I2R(uint8_t imm) {
+    uint8_t a = get8(REG_AF, 1);
+    a ^= imm;
+    set8(REG_AF, 1, a);
+
+    set_flag(FLAG_Z, (a == 0) ? 1 : 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, 0);
+    set_flag(FLAG_C, 0);
+
+    return 8;
+}
+
+int CP_I(uint8_t imm) {
+    ALU8(REG_AF, imm, 1, 1, 0, 0);
+    return 8;
+}
+
 /* performes 8-bit INC operation on register src */
 int INC_DEC_8_R(RegisterIndex src, int high, int dec) {
     int curr_carry = get_flag(FLAG_C); /* extract to restore after using ALU8 */
@@ -362,6 +445,38 @@ int ADD_16_SP_OFFSET(uint8_t imm) {
     set_flag(FLAG_C, (((sp & 0xFF) + (offset & 0xFF)) > 0xFF) ? 1 : 0);
     
     return 16;
+}
+
+/* Load HL with SP + signed immediate (does not modify SP) */
+int LDHL_SP_n(uint8_t imm) {
+    int8_t offset = (int8_t)imm;
+    uint16_t sp = get16(REG_SP);
+    uint16_t result = sp + offset;
+
+    set16(REG_HL, result);
+
+    set_flag(FLAG_Z, 0);
+    set_flag(FLAG_N, 0);
+    set_flag(FLAG_H, (((sp & 0x0F) + (offset & 0x0F)) > 0x0F) ? 1 : 0);
+    set_flag(FLAG_C, (((sp & 0xFF) + (offset & 0xFF)) > 0xFF) ? 1 : 0);
+
+    return 12;
+}
+
+/* Load SP with HL */
+int LD_SP_HL() {
+    set16(REG_SP, get16(REG_HL));
+    return 8;
+}
+
+/* Store SP into absolute memory address (LSB at addr, MSB at addr+1) */
+int LD_abs_SP(uint16_t addr) {
+    uint16_t sp = get16(REG_SP);
+    uint8_t low = sp & 0xFF;
+    uint8_t high = (sp >> 8) & 0xFF;
+    memory_write(addr, low);
+    memory_write(addr + 1, high);
+    return 20;
 }
 
 
@@ -1274,6 +1389,38 @@ int RET_NZ() {
 /* Return if Zero flag is set (RET Z) */
 int RET_Z() {
     if (get_flag(FLAG_Z) == 1) {
+        uint16_t sp = get16(REG_SP);
+        uint8_t low = memory_read(sp);
+        sp += 1;
+        uint8_t high = memory_read(sp);
+        sp += 1;
+
+        set16(REG_SP, sp);
+        set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
+        return 20;
+    }
+    return 8;
+}
+
+/* Return if Carry flag is reset (RET NC) */
+int RET_NC() {
+    if (get_flag(FLAG_C) == 0) {
+        uint16_t sp = get16(REG_SP);
+        uint8_t low = memory_read(sp);
+        sp += 1;
+        uint8_t high = memory_read(sp);
+        sp += 1;
+
+        set16(REG_SP, sp);
+        set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
+        return 20;
+    }
+    return 8;
+}
+
+/* Return if Carry flag is set (RET C) */
+int RET_C() {
+    if (get_flag(FLAG_C) == 1) {
         uint16_t sp = get16(REG_SP);
         uint8_t low = memory_read(sp);
         sp += 1;
