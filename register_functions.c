@@ -991,7 +991,298 @@ int RES_m(int b) {
 
 /* sets PC value to target address */
 int JP_addr(uint16_t addr){
-    set16(REG_SP, addr);
+    set16(REG_PC, addr);
     return 12;
 }
 
+/* Jump absolute if Zero flag is reset (JP NZ, nn) */
+int JP_NZ(uint16_t addr) {
+    if (get_flag(FLAG_Z) == 0) {
+        set16(REG_PC, addr);
+        return 16; /* Jump taken */
+    }
+    return 12; /* Jump not taken */
+}
+
+/* Jump absolute if Zero flag is set (JP Z, nn) */
+int JP_Z(uint16_t addr) {
+    if (get_flag(FLAG_Z) == 1) {
+        set16(REG_PC, addr);
+        return 16;
+    }
+    return 12;
+}
+
+/* Jump absolute if Carry flag is reset (JP NC, nn) */
+int JP_NC(uint16_t addr) {
+    if (get_flag(FLAG_C) == 0) {
+        set16(REG_PC, addr);
+        return 16;
+    }
+    return 12;
+}
+
+/* Jump absolute if Carry flag is set (JP C, nn) */
+int JP_C(uint16_t addr) {
+    if (get_flag(FLAG_C) == 1) {
+        set16(REG_PC, addr);
+        return 16;
+    }
+    return 12;
+}
+
+/* Unconditional absolute jump to address in HL (JP (HL)) */
+int JP_HL() {
+    uint16_t value = get16(REG_HL);
+    set16(REG_PC, value);
+    return 4; 
+}
+
+/* Unconditional relative jump (JR e) */
+int JR(int8_t offset) {
+    uint16_t pc = get16(REG_PC);
+    set16(REG_PC, pc + offset);
+    return 12;
+}
+
+/* Jump relative if Zero flag is reset (JR NZ, e) */
+int JR_NZ(int8_t offset) {
+    if (get_flag(FLAG_Z) == 0) {
+        uint16_t pc = get16(REG_PC);
+        set16(REG_PC, pc + offset);
+        return 12; /* Jump taken */
+    }
+    return 8; /* Jump not taken */
+}
+
+/* Jump relative if Zero flag is set (JR Z, e) */
+int JR_Z(int8_t offset) {
+    if (get_flag(FLAG_Z) == 1) {
+        uint16_t pc = get16(REG_PC);
+        set16(REG_PC, pc + offset);
+        return 12;
+    }
+    return 8;
+}
+
+/* Jump relative if Carry flag is reset (JR NC, e) */
+int JR_NC(int8_t offset) {
+    if (get_flag(FLAG_C) == 0) {
+        uint16_t pc = get16(REG_PC);
+        set16(REG_PC, pc + offset);
+        return 12;
+    }
+    return 8;
+}
+
+/* Jump relative if Carry flag is set (JR C, e) */
+int JR_C(int8_t offset) {
+    if (get_flag(FLAG_C) == 1) {
+        uint16_t pc = get16(REG_PC);
+        set16(REG_PC, pc + offset);
+        return 12;
+    }
+    return 8;
+}
+
+
+
+
+/*================== CALL OPERATIONS =======================*/
+
+
+/* Push address of next instruction onto stack and then jump to address */
+int CALL(uint16_t addr) {
+    uint16_t return_addr = get16(REG_PC);
+    uint8_t high = (return_addr >> 8) & 0xFF;
+    uint8_t low  = return_addr & 0xFF;
+    
+    uint16_t sp = get16(REG_SP);
+    
+    sp -= 1;
+    memory_write(sp, high);
+    
+    sp -= 1;
+    memory_write(sp, low);
+    
+    set16(REG_SP, sp);
+    
+    set16(REG_PC, addr);
+    
+    return 24; 
+}
+
+/* Call if Zero flag is reset  */
+int CALL_NZ(uint16_t addr) {
+    if (get_flag(FLAG_Z) == 0) {
+        /* Branch Taken */
+        uint16_t return_addr = get16(REG_PC);
+        uint8_t high = (return_addr >> 8) & 0xFF;
+        uint8_t low  = return_addr & 0xFF;
+        
+        uint16_t sp = get16(REG_SP);
+        sp -= 1;
+        memory_write(sp, high);
+        sp -= 1;
+        memory_write(sp, low);
+        set16(REG_SP, sp);
+        
+        set16(REG_PC, addr);
+        return 24;
+    }
+    /* Branch Not Taken */
+    return 12; 
+}
+
+/* Call if Zero flag is set */
+int CALL_Z(uint16_t addr) {
+    if (get_flag(FLAG_Z) == 1) {
+        uint16_t return_addr = get16(REG_PC);
+        uint8_t high = (return_addr >> 8) & 0xFF;
+        uint8_t low  = return_addr & 0xFF;
+        
+        uint16_t sp = get16(REG_SP);
+        sp -= 1;
+        memory_write(sp, high);
+        sp -= 1;
+        memory_write(sp, low);
+        set16(REG_SP, sp);
+        
+        set16(REG_PC, addr);
+        return 24;
+    }
+    return 12;
+}
+
+/* Call if Carry flag is reset */
+int CALL_NC(uint16_t addr) {
+    if (get_flag(FLAG_C) == 0) {
+        uint16_t return_addr = get16(REG_PC);
+        uint8_t high = (return_addr >> 8) & 0xFF;
+        uint8_t low  = return_addr & 0xFF;
+        
+        uint16_t sp = get16(REG_SP);
+        sp -= 1;
+        memory_write(sp, high);
+        sp -= 1;
+        memory_write(sp, low);
+        set16(REG_SP, sp);
+        
+        set16(REG_PC, addr);
+        return 24;
+    }
+    return 12;
+}
+
+/* Call if Carry flag is set */
+int CALL_C(uint16_t addr) {
+    if (get_flag(FLAG_C) == 1) {
+        uint16_t return_addr = get16(REG_PC);
+        uint8_t high = (return_addr >> 8) & 0xFF;
+        uint8_t low  = return_addr & 0xFF;
+        
+        uint16_t sp = get16(REG_SP);
+        sp -= 1;
+        memory_write(sp, high);
+        sp -= 1;
+        memory_write(sp, low);
+        set16(REG_SP, sp);
+        
+        set16(REG_PC, addr);
+        return 24;
+    }
+    return 12;
+}
+
+
+
+/*================== RESTART OPERATIONS =======================*/
+
+/* push current address onto stack, jump to 0x0000 + imm */
+int RST(uint16_t imm){
+    uint16_t curr_addr = get16(REG_PC);
+    uint8_t high = (curr_addr >> 8) & 0xFF;
+    uint8_t low  = curr_addr & 0xFF;
+    uint16_t target_addr = 0x0000 + imm;
+    uint16_t sp = get16(REG_SP);
+    
+    sp -= 1;
+    memory_write(sp, high);
+    
+    sp -= 1;
+    memory_write(sp, low);
+    
+    set16(REG_SP, sp);
+    
+    set16(REG_PC, target_addr);
+    
+    return 32; 
+}
+
+
+/*================== RETURN OPERATIONS =======================*/
+
+/* pop two bytes from stack and jump to that address */
+int RET(){
+    uint16_t sp = get16(REG_SP);
+    uint8_t low = memory_read(sp);
+    sp += 1;
+    uint8_t high = memory_read(sp);
+    sp += 1;
+
+    set16(REG_SP, sp);
+
+    set16(REG_PC, ((uint16_t) high << 8) | (uint16_t) low );
+    
+    return 16; /* again this differs from the manual */ 
+}
+
+/* Return and Enable Interrupts (RETI) */
+int RETI() {
+    /* Exact same stack pop as RET */
+    uint16_t sp = get16(REG_SP);
+    uint8_t low = memory_read(sp);
+    sp += 1;
+    uint8_t high = memory_read(sp);
+    sp += 1;
+
+    set16(REG_SP, sp);
+    set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
+    
+    /* RETI immediately enables interrupts */
+    set_ime(1); 
+    
+    return 16;
+}
+
+/* Return if Zero flag is reset (RET NZ) */
+int RET_NZ() {
+    if (get_flag(FLAG_Z) == 0) {
+        uint16_t sp = get16(REG_SP);
+        uint8_t low = memory_read(sp);
+        sp += 1;
+        uint8_t high = memory_read(sp);
+        sp += 1;
+
+        set16(REG_SP, sp);
+        set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
+        return 20; /* Branch Taken */
+    }
+    return 8; /* Branch Not Taken */
+}
+
+/* Return if Zero flag is set (RET Z) */
+int RET_Z() {
+    if (get_flag(FLAG_Z) == 1) {
+        uint16_t sp = get16(REG_SP);
+        uint8_t low = memory_read(sp);
+        sp += 1;
+        uint8_t high = memory_read(sp);
+        sp += 1;
+
+        set16(REG_SP, sp);
+        set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
+        return 20;
+    }
+    return 8;
+}
