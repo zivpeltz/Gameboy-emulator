@@ -14,13 +14,13 @@ implemented as pseudo instructions of these core operations.
 /* register to register 8-bit LD function*/
 int load_R2R(RegisterIndex src, int src_high, RegisterIndex dst, int dst_high) {
     set8(dst, dst_high, get8(src,src_high));
-    return 4; 
+    return 0; 
 }
 
 /* immediate to register 8-bit LD function*/
 int load_I2R(RegisterIndex dst, int dst_high, uint8_t value) {
     set8(dst, dst_high, value);
-    return 8; 
+    return 0; 
 }
 
 /* memory to/from register 8-bit LD function */
@@ -28,26 +28,26 @@ int load_MR(RegisterIndex addressreg, RegisterIndex reg, int high,int M2R){
     uint16_t address = get16(addressreg);
     if(M2R) set8(reg, high, memory_read(address));
     else memory_write(address, get8(reg,high));
-    return 8;
+    return 0;
 }
 
 /* load 8-bit immediate to memory address */
 int load_MI(RegisterIndex addressreg, uint8_t value){
     uint16_t address = get16(addressreg);
     memory_write(address,value);
-    return 12;
+    return 0;
 }
 
 /* load from 16-bit memory address to 8-bit register */
 int load_abs2R(RegisterIndex reg, int high, uint16_t address) {
     set8(reg, high, memory_read(address));
-    return 16;
+    return 0;
 }
 
 /* load from 8-bit register to 16-bit memory address */
 int load_R2abs(uint16_t address, RegisterIndex reg, int high) {
     memory_write(address, get8(reg, high));
-    return 16;
+    return 0;
 }
 
 /* High RAM / IO (0xFF00 + n) loads/stores */
@@ -55,24 +55,24 @@ int LD_A_C() {
     uint8_t c = get8(REG_BC, 0);
     uint8_t val = memory_read(0xFF00 + (uint16_t)c);
     set8(REG_AF, 1, val);
-    return 8;
+    return 0;
 }
 
 int LD_C_A() {
     uint8_t c = get8(REG_BC, 0);
     memory_write(0xFF00 + (uint16_t)c, get8(REG_AF, 1));
-    return 8;
+    return 0;
 }
 
 int LDH_A_n(uint8_t imm) {
     uint8_t val = memory_read(0xFF00 + (uint16_t)imm);
     set8(REG_AF, 1, val);
-    return 12;
+    return 0;
 }
 
 int LDH_n_A(uint8_t imm) {
     memory_write(0xFF00 + (uint16_t)imm, get8(REG_AF, 1));
-    return 12;
+    return 0;
 }
 
 
@@ -82,13 +82,13 @@ int LDH_n_A(uint8_t imm) {
 /* register to register 16-bit LD function*/
 int load_16_R2R(RegisterIndex src, RegisterIndex dst) {
     set16(dst, get16(src));
-    return 4; 
+    return 0; 
 }
 
 /* immediate to register 16-bit LD function*/
 int load_16_I2R(RegisterIndex dst, uint16_t value){
     set16(dst, value);
-    return 12; 
+    return 0; 
 }
 
 
@@ -148,7 +148,7 @@ void ALU8(RegisterIndex dst,
 /* ALU operation from immediate/memory to an 8-bit register */
 int ALU8_I2R(RegisterIndex dst, uint8_t value, int high , int sub) {
     ALU8(dst,value,high,sub,0,1);
-    return 8; 
+    return 0; 
 }
 
 /* ALU operation from memory to an 8-bit register */
@@ -158,7 +158,7 @@ int ALU8_M2R(RegisterIndex dst, RegisterIndex addressreg , int high , int sub){
 
     ALU8(dst, value, high, sub,0,1);
 
-    return 8;
+    return 0;
 }
 
 /* ALU operation from 8-bit register to an 8-bit register */
@@ -166,7 +166,7 @@ int ALU8_R2R(RegisterIndex dst, RegisterIndex src , int dsthigh, int srchigh, in
     uint8_t value = get8(src,srchigh);
     ALU8(dst, value, dsthigh, sub,0,1);
 
-    return 4;
+    return 0;
 }
 
 /* Adds the value of an 8-bit register and the Carry Flag to A. */
@@ -174,14 +174,14 @@ int ADC_R2R(RegisterIndex src, int srchigh) {
     uint8_t value = get8(src, srchigh);
     ALU8(REG_AF, value, 1, 0, 1, 1); 
     
-    return 4; 
+    return 0; 
 }
 
 /* Adds an immediate 8-bit value and the Carry Flag to A. */
 int ADC_I2R(uint8_t immediate_value) {
     ALU8(REG_AF, immediate_value, 1, 0, 1, 1); 
 
-    return 8; 
+    return 0; 
 }
 
 /* Subtracts the value of an 8-bit register and the Carry Flag from A */
@@ -189,27 +189,27 @@ int SBC_R2R(RegisterIndex src, int srchigh) {
     uint8_t value = get8(src, srchigh);
     ALU8(REG_AF, value, 1, 1, 1, 1); 
     
-    return 4; 
+    return 0; 
 }
 
 /* Subtracts an immediate 8-bit value and the Carry Flag from A  */
 int SBC_I2R(uint8_t immediate_value) {
     ALU8(REG_AF, immediate_value, 1, 1, 1, 1); 
     
-    return 8; 
+    return 0; 
 }
 
 /* Memory-based ADC / SBC (operate on value at (HL)) */
 int ADC_M() {
     uint8_t value = memory_read(get16(REG_HL));
     ALU8(REG_AF, value, 1, 0, 1, 1);
-    return 8;
+    return 0;
 }
 
 int SBC_M() {
     uint8_t value = memory_read(get16(REG_HL));
     ALU8(REG_AF, value, 1, 1, 1, 1);
-    return 8;
+    return 0;
 }
 
 /* Performs bitwise AND between A and a register */
@@ -225,7 +225,7 @@ int AND_r(RegisterIndex src, int high) {
     set_flag(FLAG_H, 1); /* Hardware quirk: AND always sets H to 1 */
     set_flag(FLAG_C, 0);
     
-    return 4;
+    return 0;
 }
 
 /* Performs bitwise OR between A and a register */
@@ -241,7 +241,7 @@ int OR_r(RegisterIndex src, int high) {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
     
-    return 4;
+    return 0;
 }
 
 /* Performs bitwise XOR between A and a register */
@@ -257,7 +257,7 @@ int XOR_r(RegisterIndex src, int high) {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
     
-    return 4;
+    return 0;
 }
 
 /* Performs bitwise AND between A and memory at (HL) */
@@ -273,7 +273,7 @@ int AND_m() {
     set_flag(FLAG_H, 1);
     set_flag(FLAG_C, 0);
     
-    return 8;
+    return 0;
 }
 
 /* Performs bitwise OR between A and memory at (HL) */
@@ -289,7 +289,7 @@ int OR_m() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
     
-    return 8;
+    return 0;
 }
 
 /* Performs bitwise XOR between A and memory at (HL) */
@@ -305,21 +305,21 @@ int XOR_m() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
     
-    return 8;
+    return 0;
 }
 
 /* compares A with register src and sets flags (result not saved )*/
 int CP_R(RegisterIndex src, int high){
     uint8_t value = get8(src,high);
     ALU8(REG_AF , value, 1, 1 , 0 , 0);
-    return 4;
+    return 0;
 }
 
 /* compares A with value saved at (HL) address and sets flags (result not saved )*/
 int CP_M(){
     uint8_t value = memory_read(get16(REG_HL));
     ALU8(REG_AF , value, 1, 1 , 0 , 0);
-    return 8;
+    return 0;
 }
 
 /* Immediate 8-bit ALU Operations */
@@ -333,7 +333,7 @@ int AND_I2R(uint8_t imm) {
     set_flag(FLAG_H, 1);
     set_flag(FLAG_C, 0);
 
-    return 8;
+    return 0;
 }
 
 int OR_I2R(uint8_t imm) {
@@ -346,7 +346,7 @@ int OR_I2R(uint8_t imm) {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
 
-    return 8;
+    return 0;
 }
 
 int XOR_I2R(uint8_t imm) {
@@ -359,12 +359,12 @@ int XOR_I2R(uint8_t imm) {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
 
-    return 8;
+    return 0;
 }
 
 int CP_I(uint8_t imm) {
     ALU8(REG_AF, imm, 1, 1, 0, 0);
-    return 8;
+    return 0;
 }
 
 /* performes 8-bit INC operation on register src */
@@ -373,7 +373,7 @@ int INC_DEC_8_R(RegisterIndex src, int high, int dec) {
     ALU8(src, 1 , high, dec, 0, 1);
     set_flag(FLAG_C, curr_carry); /* restore since ALU8 may have destoryed prev value*/
 
-    return 4;
+    return 0;
 }
 
 /* performs 8-bit INC/DEC operation on memory address (HL) */
@@ -397,7 +397,7 @@ int INC_DEC_8_M(int dec) {
     }
     
 
-    return 12;
+    return 0;
 }
 
 /* Core 16-bit ALU logic, only does addition since there is no SUB for 16-bit  */
@@ -424,7 +424,7 @@ int ADD_16_R(RegisterIndex dst, RegisterIndex src){
     uint16_t value = get16(src);
     ALU16(dst,value);
 
-    return 8;
+    return 4;
 }
 
 /* Handles ADD SP, e (where 'e' is a signed 1-byte immediate) */
@@ -444,7 +444,7 @@ int ADD_16_SP_OFFSET(uint8_t imm) {
     set_flag(FLAG_H, (((sp & 0x0F) + (offset & 0x0F)) > 0x0F) ? 1 : 0);
     set_flag(FLAG_C, (((sp & 0xFF) + (offset & 0xFF)) > 0xFF) ? 1 : 0);
     
-    return 16;
+    return 8;
 }
 
 /* Load HL with SP + signed immediate (does not modify SP) */
@@ -460,13 +460,13 @@ int LDHL_SP_n(uint8_t imm) {
     set_flag(FLAG_H, (((sp & 0x0F) + (offset & 0x0F)) > 0x0F) ? 1 : 0);
     set_flag(FLAG_C, (((sp & 0xFF) + (offset & 0xFF)) > 0xFF) ? 1 : 0);
 
-    return 12;
+    return 4;
 }
 
 /* Load SP with HL */
 int LD_SP_HL() {
     set16(REG_SP, get16(REG_HL));
-    return 8;
+    return 4;
 }
 
 /* Store SP into absolute memory address (LSB at addr, MSB at addr+1) */
@@ -476,7 +476,7 @@ int LD_abs_SP(uint16_t addr) {
     uint8_t high = (sp >> 8) & 0xFF;
     memory_write(addr, low);
     memory_write(addr + 1, high);
-    return 20;
+    return 0;
 }
 
 
@@ -485,7 +485,7 @@ int INC_DEC_16(RegisterIndex src, int dec) {
     uint16_t curr = get16(src);
     curr = (dec == 0) ? curr + 1 : curr - 1;
     set16(src ,curr);
-    return 8;
+    return 4;
 }
 /*================== MISCELLANEOUS OPERATIONS =======================*/
 
@@ -498,7 +498,7 @@ int SWAP_R(RegisterIndex src, int high){
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
-    return 8;
+    return 0;
 }
 
 /* swaps the nibbles of a value in (HL) */
@@ -511,7 +511,7 @@ int SWAP_M(){
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, 0);
-    return 16;
+    return 4;
 }
 
 /* Decimal Adjust Accumulator 
@@ -576,7 +576,7 @@ int DAA(){
     }
     /* Note: If set_carry is 0, we DO NOT reset C to 0. It must stay 1 if it was already 1 before DAA. */
 
-    return 4; // DAA takes 4 clock cycles
+    return 0; // DAA takes 4 clock cycles
 }
 
 /* flips all of A's bits */
@@ -588,7 +588,7 @@ int CPL(){
     set_flag(FLAG_N, 1);
     set_flag(FLAG_H, 1);
 
-    return 4;
+    return 0;
 }
 
 /* complements carry flag */
@@ -599,7 +599,7 @@ int CCF(){
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
 
-    return 4;
+    return 0;
 
 }
 
@@ -609,30 +609,30 @@ int SCF(){
     set_flag(FLAG_N, 0);
     set_flag(FLAG_H, 0);
 
-    return 4;
+    return 0;
 
 }
 /* does nothing */
 int NOP(){
-    return 4;
+    return 0;
 }
 
 /* Suspends CPU execution until an interrupt occurs */
 int HALT() {
     set_halt(1);
-    return 4;
+    return 0;
 }
 
 /* Disables all interrupts by resetting the IME flag */
 int DI() {
     set_ime(0);
-    return 4; 
+    return 0; 
 }
 
 /* Enables interrupts, but with a 1-instruction delay */
 int EI() {
     schedule_ime();
-    return 4;
+    return 0;
 }
 
 /* Halts the CPU and LCD oscillator until a Joypad press */
@@ -644,7 +644,7 @@ int STOP() {
     uint16_t pc = get16(REG_PC);
     set16(REG_PC, pc + 1);
     
-    return 4; 
+    return 0; 
 }
 
 
@@ -661,7 +661,7 @@ int PUSH(RegisterIndex src){
     memory_write(sp, low);
     set16(REG_SP, sp);
 
-    return 16;
+    return 4;
 }
 
 /* pops 16-bit value from stack */
@@ -683,7 +683,7 @@ int POP(RegisterIndex dst){
 
     set16(REG_SP, sp);
     
-    return 12;
+    return 0;
 }
 
 
@@ -708,7 +708,7 @@ int RLCA() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 4;
+    return 0;
 }
 
 /* rotates A left through carry*/
@@ -726,7 +726,7 @@ int RLA() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 4;
+    return 0;
 }
 
 /* rotates A right circularly  */
@@ -743,7 +743,7 @@ int RRCA() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 4;
+    return 0;
 }
 
 /* rotates A right through carry  */
@@ -761,7 +761,7 @@ int RRA() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 4;
+    return 0;
 }
 
 /* rotates 8-bit register left */
@@ -779,7 +779,7 @@ int rotate_left_r(RegisterIndex src , int high) {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 0;
 }
 
 /* rotates 8-bit register left through carry*/
@@ -796,7 +796,7 @@ int rotate_left_carry_r(RegisterIndex src , int high) {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 0;
 }
 
 /* rotates 8-bit register right , old bit 0 to carry flag*/
@@ -812,7 +812,7 @@ int rotate_right_r(RegisterIndex src , int high){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 0;
 }
 
 /* rotate 8-bit register right through carry flag */
@@ -829,7 +829,7 @@ int rotate_right_carry_r(RegisterIndex src, int high){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 0;
 }
 
 /* rotates value at (HL) left */
@@ -847,7 +847,7 @@ int rotate_left_m() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 16; 
+    return 4; 
 }
 
 /* rotates value at (HL) left through carry */
@@ -866,7 +866,7 @@ int rotate_left_carry_m() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 16;
+    return 4;
 }
 
 /* rotates value at (HL) right*/
@@ -884,7 +884,7 @@ int rotate_right_m() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 16;
+    return 4;
 }
 
 /* rotates value at (HL) right through carry */
@@ -903,7 +903,7 @@ int rotate_right_carry_m() {
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 16;
+    return 4;
 }
 /* shifts 8-bit register left into carry, LSB set to 0 */
 int SLA_r(RegisterIndex src, int high){
@@ -921,7 +921,7 @@ int SLA_r(RegisterIndex src, int high){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 0;
 }
 
 /* shifts 8-bit value stored in (HL) left into carry, LSB set to 0 */
@@ -941,7 +941,7 @@ int SLA_m(){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 16;
+    return 4;
 }
 
 /* shifts 8-bit register right into carry, MSB extends */
@@ -958,7 +958,7 @@ int SRA_r(RegisterIndex src, int high){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 0;
 }
 
 
@@ -978,7 +978,7 @@ int SRA_m(){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 16;
+    return 4;
 }
 
 /* shifts 8-bit register right into carry, MSB sets to 0 */
@@ -995,7 +995,7 @@ int SRL_r(RegisterIndex src, int high){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 8;
+    return 0;
 }
 
 
@@ -1015,7 +1015,7 @@ int SRL_m(){
     set_flag(FLAG_H, 0);
     set_flag(FLAG_C, carry);
 
-    return 16;
+    return 4;
 }
 
 
@@ -1034,7 +1034,7 @@ int BIT_r(int b, RegisterIndex src, int high) {
     set_flag(FLAG_H, 1);
 
 
-    return 8; 
+    return 0; 
 }
 
 /* Tests bit 'b' (0-7) in the value stored at memory address (HL) */
@@ -1050,7 +1050,7 @@ int BIT_m(int b) {
     set_flag(FLAG_H, 1);
 
 
-    return 12; /* manual claims its 16 but online sources claim otherwise*/ 
+    return 4; /* manual claims its 16 but online sources claim otherwise*/ 
 }
 
 /* Sets bit 'b' (0-7) in an 8-bit register */
@@ -1060,7 +1060,7 @@ int SET_r(int b, RegisterIndex src, int high) {
     value |= (1 << b);
 
     set8(src,high,value);
-    return 8; 
+    return 0; 
 }
 
 /* Sets bit 'b' (0-7) in the value stored at memory address (HL) */
@@ -1074,7 +1074,7 @@ int SET_m(int b) {
     memory_write(addr,value);
 
 
-    return 16; 
+    return 4; 
 }
 
 /* Resets bit 'b' (0-7) in an 8-bit register */
@@ -1084,7 +1084,7 @@ int RES_r(int b, RegisterIndex src, int high) {
     value &= ~(1 << b);
 
     set8(src,high,value);
-    return 8; 
+    return 0; 
 }
 
 /* Resets bit 'b' (0-7) in the value stored at memory address (HL) */
@@ -1098,7 +1098,7 @@ int RES_m(int b) {
     memory_write(addr,value);
 
 
-    return 16; 
+    return 4; 
 }
 
 
@@ -1107,57 +1107,57 @@ int RES_m(int b) {
 /* sets PC value to target address */
 int JP_addr(uint16_t addr){
     set16(REG_PC, addr);
-    return 12;
+    return 0;
 }
 
 /* Jump absolute if Zero flag is reset (JP NZ, nn) */
 int JP_NZ(uint16_t addr) {
     if (get_flag(FLAG_Z) == 0) {
         set16(REG_PC, addr);
-        return 16; /* Jump taken */
+        return 4; /* Jump taken */
     }
-    return 12; /* Jump not taken */
+    return 0; /* Jump not taken */
 }
 
 /* Jump absolute if Zero flag is set (JP Z, nn) */
 int JP_Z(uint16_t addr) {
     if (get_flag(FLAG_Z) == 1) {
         set16(REG_PC, addr);
-        return 16;
+        return 4;
     }
-    return 12;
+    return 0;
 }
 
 /* Jump absolute if Carry flag is reset (JP NC, nn) */
 int JP_NC(uint16_t addr) {
     if (get_flag(FLAG_C) == 0) {
         set16(REG_PC, addr);
-        return 16;
+        return 4;
     }
-    return 12;
+    return 0;
 }
 
 /* Jump absolute if Carry flag is set (JP C, nn) */
 int JP_C(uint16_t addr) {
     if (get_flag(FLAG_C) == 1) {
         set16(REG_PC, addr);
-        return 16;
+        return 4;
     }
-    return 12;
+    return 0;
 }
 
 /* Unconditional absolute jump to address in HL (JP (HL)) */
 int JP_HL() {
     uint16_t value = get16(REG_HL);
     set16(REG_PC, value);
-    return 4; 
+    return 0; 
 }
 
 /* Unconditional relative jump (JR e) */
 int JR(int8_t offset) {
     uint16_t pc = get16(REG_PC);
     set16(REG_PC, pc + offset);
-    return 12;
+    return 4;
 }
 
 /* Jump relative if Zero flag is reset (JR NZ, e) */
@@ -1165,9 +1165,9 @@ int JR_NZ(int8_t offset) {
     if (get_flag(FLAG_Z) == 0) {
         uint16_t pc = get16(REG_PC);
         set16(REG_PC, pc + offset);
-        return 12; /* Jump taken */
+        return 4; /* Jump taken */
     }
-    return 8; /* Jump not taken */
+    return 0; /* Jump not taken */
 }
 
 /* Jump relative if Zero flag is set (JR Z, e) */
@@ -1175,9 +1175,9 @@ int JR_Z(int8_t offset) {
     if (get_flag(FLAG_Z) == 1) {
         uint16_t pc = get16(REG_PC);
         set16(REG_PC, pc + offset);
-        return 12;
+        return 4;
     }
-    return 8;
+    return 0;
 }
 
 /* Jump relative if Carry flag is reset (JR NC, e) */
@@ -1185,9 +1185,9 @@ int JR_NC(int8_t offset) {
     if (get_flag(FLAG_C) == 0) {
         uint16_t pc = get16(REG_PC);
         set16(REG_PC, pc + offset);
-        return 12;
+        return 4;
     }
-    return 8;
+    return 0;
 }
 
 /* Jump relative if Carry flag is set (JR C, e) */
@@ -1195,9 +1195,9 @@ int JR_C(int8_t offset) {
     if (get_flag(FLAG_C) == 1) {
         uint16_t pc = get16(REG_PC);
         set16(REG_PC, pc + offset);
-        return 12;
+        return 4;
     }
-    return 8;
+    return 0;
 }
 
 
@@ -1224,7 +1224,7 @@ int CALL(uint16_t addr) {
     
     set16(REG_PC, addr);
     
-    return 24; 
+    return 4; 
 }
 
 /* Call if Zero flag is reset  */
@@ -1243,10 +1243,10 @@ int CALL_NZ(uint16_t addr) {
         set16(REG_SP, sp);
         
         set16(REG_PC, addr);
-        return 24;
+        return 4;
     }
     /* Branch Not Taken */
-    return 12; 
+    return 0; 
 }
 
 /* Call if Zero flag is set */
@@ -1264,9 +1264,9 @@ int CALL_Z(uint16_t addr) {
         set16(REG_SP, sp);
         
         set16(REG_PC, addr);
-        return 24;
+        return 4;
     }
-    return 12;
+    return 0;
 }
 
 /* Call if Carry flag is reset */
@@ -1284,9 +1284,9 @@ int CALL_NC(uint16_t addr) {
         set16(REG_SP, sp);
         
         set16(REG_PC, addr);
-        return 24;
+        return 4;
     }
-    return 12;
+    return 0;
 }
 
 /* Call if Carry flag is set */
@@ -1304,9 +1304,9 @@ int CALL_C(uint16_t addr) {
         set16(REG_SP, sp);
         
         set16(REG_PC, addr);
-        return 24;
+        return 4;
     }
-    return 12;
+    return 0;
 }
 
 
@@ -1331,7 +1331,7 @@ int RST(uint16_t imm){
     
     set16(REG_PC, target_addr);
     
-    return 32; 
+    return 4; 
 }
 
 
@@ -1349,7 +1349,7 @@ int RET(){
 
     set16(REG_PC, ((uint16_t) high << 8) | (uint16_t) low );
     
-    return 16; /* again this differs from the manual */ 
+    return 4; /* again this differs from the manual */ 
 }
 
 /* Return and Enable Interrupts (RETI) */
@@ -1367,7 +1367,7 @@ int RETI() {
     /* RETI immediately enables interrupts */
     set_ime(1); 
     
-    return 16;
+    return 4;
 }
 
 /* Return if Zero flag is reset (RET NZ) */
@@ -1381,9 +1381,9 @@ int RET_NZ() {
 
         set16(REG_SP, sp);
         set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
-        return 20; /* Branch Taken */
+        return 8; /* Branch Taken */
     }
-    return 8; /* Branch Not Taken */
+    return 4; /* Branch Not Taken */
 }
 
 /* Return if Zero flag is set (RET Z) */
@@ -1397,9 +1397,9 @@ int RET_Z() {
 
         set16(REG_SP, sp);
         set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
-        return 20;
+        return 8;
     }
-    return 8;
+    return 4;
 }
 
 /* Return if Carry flag is reset (RET NC) */
@@ -1413,9 +1413,9 @@ int RET_NC() {
 
         set16(REG_SP, sp);
         set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
-        return 20;
+        return 8;
     }
-    return 8;
+    return 4;
 }
 
 /* Return if Carry flag is set (RET C) */
@@ -1429,7 +1429,7 @@ int RET_C() {
 
         set16(REG_SP, sp);
         set16(REG_PC, ((uint16_t)high << 8) | (uint16_t)low);
-        return 20;
+        return 8;
     }
-    return 8;
+    return 4;
 }
